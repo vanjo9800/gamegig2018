@@ -45,6 +45,26 @@ function drawBackground(background) {
     }
 }
 
+var playerRight = ["Player/Middle.png", "Player/Left.png", "Player/Middle.png", "Player/Right.png"];
+var playerLeft = ["Player/Middle1.png", "Player/Left1.png", "Player/Middle1.png", "Player/Right1.png"];
+
+function drawPlayer(playerX, playerY, frameNumber, direction) {
+	var index = (frameNumber / 8) % 4;
+	
+	switch(direction) {
+		case direction == 1: // Right
+			var src = playerRight[index];
+			createImage(src, x, y);
+			break;
+		case direction == -1: // Left
+			var src = playerLeft[index];
+			createImage(src, x, y);
+			break;
+		default:
+			createImage("Player/Middle.png", x, y);
+	}
+}
+
 function drawButton(file, x, y, w, h) {
     var btn = new Image();
     btn.src = file;
