@@ -1,7 +1,9 @@
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
+app.use(express.static('public'));
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html');
 });
@@ -13,14 +15,15 @@ app.get('/script.js', function (req, res) {
 });
 
 var socketsPlayers = [];
+var socketsCodes = [];
 var numberPlayers = [];
 var playsIn = [];
 
-var velIncrease = blockSize/2 + blockSize/4;
-var mapCache = 10;
 var blockSize = 40;
-var screenHeight = 10;
-var screenWidth = 20;
+var velIncrease = blockSize / 2 + blockSize / 4;
+var mapCache = 10;
+var screenHeight = 14;
+var screenWidth = 25;
 
 var heights = [],
   enemiesGeneral = [];
@@ -88,9 +91,8 @@ Game.prototype.cacheMap = function () {
 }
 
 Game.prototype.sendPlayers = function (channel, data) {
-  for (player in numberPlayers[this.gameCode]) {
-    socketsPlayers[player].emit(channel, data);
-    console.log(channel, data);
+  for (player of numberPlayers[this.gameCode]) {
+    io.to(socketsPlayers[player]).emit(channel, data);
   }
 }
 
@@ -113,13 +115,13 @@ Game.prototype.handlePlayer = function () {
     this.points++;
   }
   this.position.y -= this.velocityY;
-  this.velocityY -= 1;
+  this.velocityY -= 4;
   this.position.y = Math.min(this.position.y, screenHeight * blockSize - (this.map[this.position.x] + 2) * blockSize);
   this.sendMap();
   var _this = this;
   setTimeout(function () {
     _this.handlePlayer();
-  }, 200);
+  }, 100);
 }
 
 Game.prototype.initGame = function () {
@@ -139,12 +141,14 @@ Game.prototype.initGame = function () {
 Game.prototype.handleMove = function (keyCode, userCode) {
   var key = this.roles.indexOf(userCode);
 
+  console.log(key);
+
   if (key == 0) { //Left key
-    this.position.x -= blockSize;
+    this.position.x -= 1; //blockSize;
     this.stepsSinceLast++;
   }
   if (key == 1) { //Right key
-    this.position.x += blockSize;
+    this.position.x += 1; //blockSize;
     this.stepsSinceLast++;
   }
   if (key == 2 && this.position.y + blockSize + (this.map[this.position.x] + 1) * blockSize >= screenHeight * blockSize) {
@@ -190,32 +194,32 @@ var games = [];
 io.on('connection', function (socket) {
   code = Math.random().toString(36).substr(2, 6);
   socket.emit('code', code);
-  console.log("CONNECT!" + code);
   numberPlayers[code] = [];
   numberPlayers[code].push(code);
   playsIn[code] = code;
-  socketsPlayers[code] = socket;
+  socketsPlayers[code] = socket.id;
+  socketsCodes[socket.id] = code;
   socket.on('disconnect', function () {
-    delete socketsPlayers[code];
-    delete games[code];
-    disconnectCurrentGame(code);
+    delete socketsPlayers[socketsCodes[socket.id]];
+    delete games[socketsCodes[socket.id]];
+    disconnectCurrentGame(socketsCodes[socket.id]);
   });
   socket.on('join', function (gameCode) {
     if (numberPlayers[gameCode].length == 3 || numberPlayers[gameCode].length == 0) {
       socket.emit('join', -1);
       return;
     }
-    disconnectCurrentGame(code);
-    playsIn[code] = gameCode;
-    numberPlayers[gameCode].push(code);
-    if (numberPlayers[code].length == 3) {
+    disconnectCurrentGame(socketsCodes[socket.id]);
+    playsIn[socketsCodes[socket.id]] = gameCode;
+    numberPlayers[gameCode].push(socketsCodes[socket.id]);
+    if (numberPlayers[gameCode].length == 3) {
       games[gameCode] = new Game(gameCode);
       games[gameCode].initGame();
       games[gameCode].sendPlayers('startgame', 1);
     }
   });
   socket.on('keyPress', function (keyCode) {
-    games[playsIn[code]].handleMove(keyCode, code);
+    games[playsIn[socketsCodes[socket.id]]].handleMove(keyCode, socketsCodes[socket.id]);
   });
 });
 

@@ -1,6 +1,7 @@
-var socket = io.connect('http://10.240.96.69:3000');
+var socket = io.connect('http://localhost:3000');
+var userCode = "";
 socket.on('code', function (code) {
-    console.log('Received code' + code);
+    userCode = code;
 });
 socket.on('join', function (resp) {
     if (resp == -1) {
@@ -12,21 +13,28 @@ socket.on('startgame', function (data) {
         console.log("The game has successfully started.");
     }
 });
+var reqAnimationFrame =
+    window.requestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    window.webkitRequestAnimationFrame ||
+    window.msRequestAnimationFrame ||
+    function (callback) {
+        setTimeout(callback, 1000 / 30);
+    };
 socket.on('map', function (data) {
-    //The map as an object
-    // data.playerY
-    // data.map2D
+    reqAnimationFrame(gameScreen(data.map, data.playerY, data.points, data.role));
 });
 socket.on('status', function (data) {
     if (data == 'gameover') {
-        //the game is over
+        gameOverScreen();
     }
 });
 
 function joinGame(code) {
+    console.log("Joining " + code);
     socket.emit('join', code);
 }
 
-document.addEventListener("keypress", function (event) {
-    socket.emit('keyPress', event.keyCode);
-});
+function keyPress() {
+    socket.emit('keyPress', 1);
+}
