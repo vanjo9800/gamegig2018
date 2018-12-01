@@ -5,14 +5,20 @@ var io = require('socket.io')(http);
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html');
 });
+app.get('/connect.js', function (req, res) {
+  res.sendFile(__dirname + '/connect.js');
+});
+app.get('/script.js', function (req, res) {
+  res.sendFile(__dirname + '/script.js');
+});
 
 var socketsPlayers = [];
 var numberPlayers = [];
 var playsIn = [];
 
-var velIncrease = 15;
+var velIncrease = blockSize/2 + blockSize/4;
 var mapCache = 10;
-var blockSize = 20;
+var blockSize = 40;
 var screenHeight = 10;
 var screenWidth = 20;
 
@@ -82,14 +88,13 @@ Game.prototype.cacheMap = function () {
 }
 
 Game.prototype.sendPlayers = function (channel, data) {
-  //for (player in numberPlayers[this.gameCode]) {
-  //socketsPlayers[player].emit(channel, data);
-  console.log(channel, data);
-  //}
+  for (player in numberPlayers[this.gameCode]) {
+    socketsPlayers[player].emit(channel, data);
+    console.log(channel, data);
+  }
 }
 
 Game.prototype.handlePlayer = function () {
-  console.log("fsfd");
   if (this.gameOver) {
     return;
   }
@@ -132,9 +137,7 @@ Game.prototype.initGame = function () {
 }
 
 Game.prototype.handleMove = function (keyCode, userCode) {
-  console.log("MOV");
   var key = this.roles.indexOf(userCode);
-  console.log("KEY" + key);
 
   if (key == 0) { //Left key
     this.position.x -= blockSize;
@@ -186,6 +189,7 @@ var games = [];
 
 io.on('connection', function (socket) {
   code = Math.random().toString(36).substr(2, 6);
+  socket.emit('code', code);
   console.log("CONNECT!" + code);
   numberPlayers[code] = [];
   numberPlayers[code].push(code);
@@ -194,19 +198,20 @@ io.on('connection', function (socket) {
   socket.on('disconnect', function () {
     delete socketsPlayers[code];
     delete games[code];
-    disconnectCurrentGame();
+    disconnectCurrentGame(code);
   });
-  socket.on('joinGame', function (gameCode) {
-    if (numberPlayers.length == 3) {
-      socket.emit('joinGame', 'The game room is full!');
+  socket.on('join', function (gameCode) {
+    if (numberPlayers[gameCode].length == 3 || numberPlayers[gameCode].length == 0) {
+      socket.emit('join', -1);
       return;
     }
-    disconnectCurrentGame();
+    disconnectCurrentGame(code);
     playsIn[code] = gameCode;
-    numberPlayers.push(code);
-    if (numberPlayers.length == 3) {
+    numberPlayers[gameCode].push(code);
+    if (numberPlayers[code].length == 3) {
       games[gameCode] = new Game(gameCode);
       games[gameCode].initGame();
+      games[gameCode].sendPlayers('startgame', 1);
     }
   });
   socket.on('keyPress', function (keyCode) {
@@ -232,7 +237,7 @@ http.listen(3000, function () {
   console.log('listening on *:3000');
 
   //Testing
-  var gameCode = 'aaaaaa';
+  /*var gameCode = 'aaaaaa';
   numberPlayers[gameCode] = [];
   numberPlayers[gameCode].push('aaabbb');
   numberPlayers[gameCode].push('aaaaaa');
@@ -243,6 +248,6 @@ http.listen(3000, function () {
   games[gameCode] = new Game(gameCode);
   games[gameCode].initGame();
 
-  setMoves();
+  setMoves();*/
 
 });
